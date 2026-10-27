@@ -210,6 +210,8 @@ static ZH: &[(&str, &str)] = &[
     ("Mulgore", "莫高雷"),
     ("Mulgore's herds roam free.", "莫高雷的兽群自由漫步。"),
     ("Naxxramas", "纳克萨玛斯"),
+    ("New spell", "新法术"),
+    ("New talent", "新天赋"),
     ("Next rank:", "下一等级："),
     ("Night Elf", "暗夜精灵"),
     ("Nordrassil endures.", "诺达希尔巍然长存。"),
@@ -255,6 +257,7 @@ static ZH: &[(&str, &str)] = &[
     ("Taerar", "泰拉尔"),
     ("Take the form of a ghost wolf, running 60% faster for 6 sec.", "化为幽魂之狼，移动速度提高 60%，持续 6 秒。"),
     ("Targets {} » {}", "目标 {} » {}"),
+    ("Tauren", "牛头人"),
     ("Teldrassil", "泰达希尔"),
     ("Teldrassil blooms again.", "泰达希尔再度繁花盛开。"),
     ("Teleport 18 yards forward.", "向前传送 18 码。"),
@@ -320,7 +323,9 @@ static ZH: &[(&str, &str)] = &[
     ("{} targets", "{} 个目标"),
     ("{} yd", "{} 码"),
     ("{} yd range", "{} 码射程"),
+    ("{} {what}", "{} 点{what}"),
     ("{} {who} for {d} damage", "{verb}{who}，造成 {d} 点伤害"),
+    ("{} {} in {}   —   press Enter to play again", "{} {} · {}   —   按 Enter 再来一局"),
 ];
 
 /// The Chinese entry for an English source string, or `en` itself when untranslated.
@@ -447,5 +452,53 @@ mod tests {
             .replace("{lo}", "1")
             .replace("{hi}", "5");
         assert_eq!(s, "等级 1-5");
+    }
+
+    /// 每个 `tr!("…")` / `i18n::t("…")` 的字面量 key 都必须在 ZH 表里有条目。
+    /// 这一条守的是"漏翻后静默回退英文"——正是它让几条文案潜伏了三期才被用户发现。
+    #[test]
+    fn every_literal_key_has_a_zh_entry() {
+        const SOURCES: &[&str] = &[
+            include_str!("hud.rs"),
+            include_str!("menu.rs"),
+            include_str!("cards.rs"),
+            include_str!("enemies.rs"),
+            include_str!("mobility.rs"),
+            include_str!("auto.rs"),
+            include_str!("damage_meter.rs"),
+            include_str!("../char_select/mod.rs"),
+        ];
+        let mut missing = Vec::new();
+        for src in SOURCES {
+            for prefix in ["tr!(", "i18n::t("] {
+                let mut from = 0usize;
+                while let Some(at) = src[from..].find(prefix) {
+                    let mut i = from + at + prefix.len();
+                    while src.as_bytes().get(i) == Some(&b' ') {
+                        i += 1;
+                    }
+                    if src.as_bytes().get(i) != Some(&b'"') {
+                        from = i;
+                        continue;
+                    }
+                    let start = i + 1;
+                    let mut end = start;
+                    while let Some(&b) = src.as_bytes().get(end) {
+                        if b == b'"' && src.as_bytes().get(end - 1) != Some(&b'\\') {
+                            break;
+                        }
+                        end += 1;
+                    }
+                    let key = &src[start..end];
+                    if !ZH.iter().any(|(k, _)| *k == key) {
+                        missing.push(key.to_string());
+                    }
+                    from = end;
+                }
+            }
+        }
+        missing.sort();
+        missing.dedup();
+        assert!(missing.is_empty(), "缺少 zh 词条: {missing:#?}");
     }
 }
