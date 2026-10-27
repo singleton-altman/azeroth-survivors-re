@@ -366,7 +366,7 @@ fn tower(ui: &mut ChildSpawnerCommands, art: &GlueArt, f: &Handle<Font>) {
                         None::<()>,
                         face,
                         None::<()>,
-                        class.name,
+                        super::i18n::t(class.name),
                         art,
                         1.0,
                     );
@@ -486,7 +486,7 @@ fn zone_frame(ui: &mut ChildSpawnerCommands, art: &GlueArt, f: &Handle<Font>) {
                         (),
                         (),
                         GlueText {
-                            text: map.name,
+                            text: super::i18n::t(map.name),
                             size: 15.0,
                             color: GOLD,
                             wrap: false,
@@ -711,7 +711,7 @@ pub(super) fn refresh_menu_ui(
     let class = selection.class_def();
     if let Ok((mut t, mut color)) = name.single_mut() {
         let want = match (class, cur) {
-            (Some(c), Some((r, _))) => format!("{} {}", race_name(r), c.name),
+            (Some(c), Some((r, _))) => format!("{} {}", race_name(r), super::i18n::t(c.name)),
             _ => String::new(),
         };
         if t.0 != want {

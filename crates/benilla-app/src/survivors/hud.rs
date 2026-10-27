@@ -1182,7 +1182,7 @@ pub(super) fn describe_card(
         }
         Choice::NewPassive(p) => CardText {
             spell: p.spell,
-            name: p.name.into(),
+            name: spell_name(spells, p.spell, p.name),
             tag: crate::tr!("New talent").into(),
             tag_color: new,
             desc: passive_text(p.stat, p.per_level),
@@ -1299,8 +1299,8 @@ pub(super) fn refresh_hud(
     let summary = crate::tr!(
         "{} {} in {}   —   press Enter to play again",
         crate::char_select::race_name(run.race),
-        run.class.name,
-        selection.map_def().name,
+        super::i18n::t(run.class.name),
+        super::i18n::t(selection.map_def().name),
     );
     if let Ok(mut t) = texts.p5().single_mut() {
         if **t != summary {
@@ -1664,7 +1664,7 @@ pub(super) fn refresh_results(
 ) {
     let secs = run.elapsed as u32;
     let stats_line = if run.won {
-        selection.map_def().victory
+        super::i18n::t(selection.map_def().victory)
     } else {
         crate::tr!("The horde was too much this time.")
     };
@@ -1765,86 +1765,156 @@ fn ability_body(def: &AbilityDef, c: &Cast) -> String {
         Kind::Bolt | Kind::Strike | Kind::Melee => {
             let toughest = matches!(def.key, "pyroblast" | "aimed_shot" | "exorcism" | "starfire");
             let melee = def.kind == Kind::Melee;
-            let who = match (toughest, melee, c.count) {
-                (true, _, 1) => "the toughest enemy in range".to_string(),
-                (true, _, n) => format!("the {n} toughest enemies in range"),
-                (false, true, 1) => "the closest enemy".into(),
-                (false, true, n) => format!("the {n} closest enemies"),
-                (false, false, 1) => "the nearest enemy".into(),
-                (false, false, n) => format!("the {n} nearest enemies"),
+            let verb = if melee {
+                crate::tr!("Strikes")
+            } else {
+                crate::tr!("Hits")
             };
-            let mut s = format!("{} {who} for {d} damage", if melee { "Strikes" } else { "Hits" });
+            let who = match (toughest, melee, c.count) {
+                (true, _, 1) => crate::tr!("the toughest enemy in range").to_string(),
+                (true, _, n) => crate::tr!("the {n} toughest enemies in range", n),
+                (false, true, 1) => crate::tr!("the closest enemy").into(),
+                (false, true, n) => crate::tr!("the {n} closest enemies", n),
+                (false, false, 1) => crate::tr!("the nearest enemy").into(),
+                (false, false, n) => crate::tr!("the {n} nearest enemies", n),
+            };
+            let mut s = crate::tr!("{} {who} for {d} damage", verb, who, d);
             if c.radius > 0.0 && !melee {
-                s += &format!(", and everything within {} yd of the hit", num(c.radius));
+                let radius = num(c.radius);
+                s += &crate::tr!(", and everything within {} yd of the hit", radius);
             }
             s
         }
-        Kind::Nova => format!("Deals {d} damage to every enemy within {} yd of you", num(c.radius)),
-        Kind::Cone => format!("Deals {d} damage to every enemy in a {} yd cone toward the closest", num(c.radius)),
+        Kind::Nova => {
+            let radius = num(c.radius);
+            crate::tr!("Deals {d} damage to every enemy within {} yd of you", d, radius)
+        }
+        Kind::Cone => {
+            let radius = num(c.radius);
+            crate::tr!(
+                "Deals {d} damage to every enemy in a {} yd cone toward the closest",
+                d,
+                radius
+            )
+        }
         Kind::Ground | Kind::GroundSelf => {
-            let at = if def.kind == Kind::GroundSelf { "around you" } else { "on the thickest pack" };
-            if burst {
-                format!("Strikes a {} yd area {at} for {d} damage", num(c.radius))
+            let at = if def.kind == Kind::GroundSelf {
+                crate::tr!("around you")
             } else {
-                format!(
+                crate::tr!("on the thickest pack")
+            };
+            let radius = num(c.radius);
+            if burst {
+                crate::tr!("Strikes a {} yd area {at} for {d} damage", radius, at, d)
+            } else {
+                let secs = num(c.duration);
+                crate::tr!(
                     "Covers a {} yd area {at} for {} sec, dealing {d} damage every second",
-                    num(c.radius),
-                    num(c.duration)
+                    radius,
+                    at,
+                    secs,
+                    d
                 )
             }
         }
-        Kind::Chain => format!(
-            "Strikes the nearest enemy for {d} damage, then jumps to {} more within {} yd of each other, 15% weaker with every jump",
-            c.count,
-            num(c.radius)
-        ),
-        Kind::Dot => format!(
-            "Afflicts {} enemies in range with {} damage every second for {} sec",
-            c.count,
-            num(c.dot),
-            num(c.duration)
-        ),
-        Kind::Aura => format!(
-            "Every {} sec, deals {d} damage to every enemy within {} yd of you",
-            num(c.cooldown),
-            num(c.radius)
-        ),
-        Kind::Orbit => format!(
-            "Every {} sec, zaps {} within {} yd of you for {d} damage",
-            num(c.cooldown),
-            if c.count == 1 { "an enemy".to_string() } else { format!("{} enemies", c.count) },
-            num(c.radius)
-        ),
-        Kind::Shield => format!("Absorbs the next {d} damage you take within {} sec", num(c.duration)),
-        Kind::Immune => format!(
-            "When an enemy closes in, makes you immune to all damage for {} sec",
-            num(c.duration)
-        ),
-        Kind::Thorns => format!(
-            "When enemies close in, deals {d} damage to every attacker for {} sec",
-            num(c.duration)
-        ),
-        Kind::Heal => format!("Below 85% health, heals you for {d} over {} sec", num(c.duration)),
-        Kind::Totem if def.key == "magma_totem" => format!(
-            "Drops a totem for {} sec that burns every enemy within {} yd for {d} damage every 2 sec",
-            num(c.duration),
-            num(c.radius)
-        ),
-        Kind::Totem => format!(
-            "Drops a totem for {} sec that hits the nearest enemy within {} yd for {d} damage every second",
-            num(c.duration),
-            num(def.range)
-        ),
+        Kind::Chain => {
+            let count = c.count;
+            let radius = num(c.radius);
+            crate::tr!(
+                "Strikes the nearest enemy for {d} damage, then jumps to {} more within {} yd of each other, 15% weaker with every jump",
+                d,
+                count,
+                radius
+            )
+        }
+        Kind::Dot => {
+            let count = c.count;
+            let dot = num(c.dot);
+            let secs = num(c.duration);
+            crate::tr!(
+                "Afflicts {} enemies in range with {} damage every second for {} sec",
+                count,
+                dot,
+                secs
+            )
+        }
+        Kind::Aura => {
+            let cooldown = num(c.cooldown);
+            let radius = num(c.radius);
+            crate::tr!(
+                "Every {} sec, deals {d} damage to every enemy within {} yd of you",
+                cooldown,
+                radius,
+                d
+            )
+        }
+        Kind::Orbit => {
+            let cooldown = num(c.cooldown);
+            let radius = num(c.radius);
+            let target = if c.count == 1 {
+                crate::tr!("an enemy").to_string()
+            } else {
+                crate::tr!("{} enemies", c.count)
+            };
+            crate::tr!(
+                "Every {} sec, zaps {} within {} yd of you for {d} damage",
+                cooldown,
+                radius,
+                target,
+                d
+            )
+        }
+        Kind::Shield => {
+            let secs = num(c.duration);
+            crate::tr!("Absorbs the next {d} damage you take within {} sec", d, secs)
+        }
+        Kind::Immune => {
+            let secs = num(c.duration);
+            crate::tr!(
+                "When an enemy closes in, makes you immune to all damage for {} sec",
+                secs
+            )
+        }
+        Kind::Thorns => {
+            let secs = num(c.duration);
+            crate::tr!(
+                "When enemies close in, deals {d} damage to every attacker for {} sec",
+                d,
+                secs
+            )
+        }
+        Kind::Heal => {
+            let secs = num(c.duration);
+            crate::tr!("Below 85% health, heals you for {d} over {} sec", d, secs)
+        }
+        Kind::Totem if def.key == "magma_totem" => {
+            let secs = num(c.duration);
+            let radius = num(c.radius);
+            crate::tr!(
+                "Drops a totem for {} sec that burns every enemy within {} yd for {d} damage every 2 sec",
+                secs,
+                radius,
+                d
+            )
+        }
+        Kind::Totem => {
+            let secs = num(c.duration);
+            let range = num(def.range);
+            crate::tr!(
+                "Drops a totem for {} sec that hits the nearest enemy within {} yd for {d} damage every second",
+                secs,
+                range,
+                d
+            )
+        }
     };
     // Areas that tick carry no over-time part; a burst leaves a 5 second one.
     let ground = matches!(def.kind, Kind::Ground | Kind::GroundSelf);
     if c.dot > 0.0 && def.kind != Kind::Dot && (!ground || burst) {
         let secs = if ground { 5.0 } else { c.duration };
-        s += &format!(
-            ", then {} damage every second for {} sec",
-            num(c.dot),
-            num(secs)
-        );
+        let secs = num(secs);
+        let dot = num(c.dot);
+        s += &crate::tr!(", then {} damage every second for {} sec", dot, secs);
     }
     if let Some(e) = effect_text(def.effect) {
         s += ", ";
@@ -1857,16 +1927,18 @@ fn ability_body(def: &AbilityDef, c: &Cast) -> String {
 /// What the next rank changes, at the current stats.
 fn next_rank(def: &AbilityDef, now: &Cast, next: &Cast) -> String {
     let what = match def.kind {
-        Kind::Shield => "absorbed",
-        Kind::Heal => "healing",
-        _ => "damage",
+        Kind::Shield => crate::tr!("absorbed"),
+        Kind::Heal => crate::tr!("healing"),
+        _ => crate::tr!("damage"),
     };
     let mut gains = Vec::new();
     if next.dmg > 0.0 && def.kind != Kind::Dot && def.kind != Kind::Immune {
-        gains.push(format!("{} {what}", num(next.dmg)));
+        let dmg = num(next.dmg);
+        gains.push(crate::tr!("{} {what}", dmg, what));
     }
     if next.dot > 0.0 {
-        gains.push(format!("{} damage per second", num(next.dot)));
+        let dot = num(next.dot);
+        gains.push(crate::tr!("{} damage per second", dot));
     }
     if next.count != now.count
         && matches!(
@@ -1875,17 +1947,20 @@ fn next_rank(def: &AbilityDef, now: &Cast, next: &Cast) -> String {
         )
     {
         gains.push(match def.kind {
-            Kind::Chain => format!("{} jumps", next.count),
-            _ => format!("{} targets", next.count),
+            Kind::Chain => crate::tr!("{} jumps", next.count),
+            _ => crate::tr!("{} targets", next.count),
         });
     }
     if next.radius > 0.0 {
-        gains.push(format!("{} yd", num(next.radius)));
+        let radius = num(next.radius);
+        gains.push(crate::tr!("{} yd", radius));
     }
     if next.duration > 0.0 {
-        gains.push(format!("{} sec", num(next.duration)));
+        let secs = num(next.duration);
+        gains.push(crate::tr!("{} sec", secs));
     }
-    gains.push(format!("{} sec cooldown", num(next.cooldown)));
+    let cooldown = num(next.cooldown);
+    gains.push(crate::tr!("{} sec cooldown", cooldown));
     gains.join(", ")
 }
 
@@ -1899,43 +1974,42 @@ fn ability_tip(
     let mut lines = vec![
         TipLine::new(spell_name(spells, def.spell, def.key), Color::WHITE)
             .header()
-            .right(format!("Rank {}", o.level), TIP_GREY),
+            .right(crate::tr!("Rank {}", o.level), TIP_GREY),
     ];
     let range = match def.kind {
-        Kind::Melee => Some("Melee Range".to_string()),
+        Kind::Melee => Some(crate::tr!("Melee Range").to_string()),
         Kind::Bolt | Kind::Strike | Kind::Chain | Kind::Dot | Kind::Ground | Kind::Totem => {
-            Some(format!("{} yd range", num(def.range)))
+            let range = num(def.range);
+            Some(crate::tr!("{} yd range", range))
         }
         _ => None,
     };
-    let mut cast = TipLine::new("Casts itself", Color::WHITE);
+    let mut cast = TipLine::new(crate::tr!("Casts itself"), Color::WHITE);
     if let Some(range) = range {
         cast = cast.right(range, Color::WHITE);
     }
     lines.push(cast);
     lines.push(
-        TipLine::new("Instant", Color::WHITE)
-            .right(format!("{} sec cooldown", num(now.cooldown)), Color::WHITE),
+        TipLine::new(crate::tr!("Instant"), Color::WHITE)
+            .right(crate::tr!("{} sec cooldown", num(now.cooldown)), Color::WHITE),
     );
     lines.push(TipLine::new(ability_body(def, &now), GOLD));
     if !matches!(
         def.kind,
         Kind::Shield | Kind::Immune | Kind::Heal | Kind::Dot
     ) {
+        let crit = pct(stats.crit);
         lines.push(TipLine::new(
-            format!(
-                "{} chance to critically strike for double damage",
-                pct(stats.crit)
-            ),
+            crate::tr!("{} chance to critically strike for double damage", crit),
             DIM,
         ));
     }
     if o.level < data::MAX_ABILITY_LEVEL {
         let next = cast_at(def, o.level + 1, stats);
-        lines.push(TipLine::new("Next rank:", Color::WHITE));
+        lines.push(TipLine::new(crate::tr!("Next rank:"), Color::WHITE));
         lines.push(TipLine::new(next_rank(def, &now, &next), GOLD));
     } else {
-        lines.push(TipLine::new("Highest rank", DIM));
+        lines.push(TipLine::new(crate::tr!("Highest rank"), DIM));
     }
     lines
 }
@@ -1944,31 +2018,31 @@ fn ability_tip(
 /// A stat's short name, for the card's before » after line.
 fn stat_label(stat: Stat) -> &'static str {
     match stat {
-        Stat::Might => "All damage",
-        Stat::MaxHp => "Maximum health",
-        Stat::Speed => "Movement speed",
-        Stat::Regen => "Health per second",
-        Stat::Haste => "Recharge speed",
-        Stat::Area => "Area size",
-        Stat::Magnet => "Pickup range",
-        Stat::Growth => "Experience gained",
-        Stat::Armor => "Damage blocked per hit",
-        Stat::Crit => "Critical strike chance",
+        Stat::Might => crate::tr!("All damage"),
+        Stat::MaxHp => crate::tr!("Maximum health"),
+        Stat::Speed => crate::tr!("Movement speed"),
+        Stat::Regen => crate::tr!("Health per second"),
+        Stat::Haste => crate::tr!("Recharge speed"),
+        Stat::Area => crate::tr!("Area size"),
+        Stat::Magnet => crate::tr!("Pickup range"),
+        Stat::Growth => crate::tr!("Experience gained"),
+        Stat::Armor => crate::tr!("Damage blocked per hit"),
+        Stat::Crit => crate::tr!("Critical strike chance"),
     }
 }
 
 fn passive_text(stat: Stat, v: f32) -> String {
     match stat {
-        Stat::Might => format!("Increases all damage you deal by {}.", pct(v)),
-        Stat::MaxHp => format!("Increases your maximum health by {}.", pct(v)),
-        Stat::Speed => format!("Increases your movement speed by {}.", pct(v)),
-        Stat::Regen => format!("Restores {} health every second.", num(v)),
-        Stat::Haste => format!("Your abilities recharge {} faster.", pct(v)),
-        Stat::Area => format!("Increases the size of your areas of effect by {}.", pct(v)),
-        Stat::Magnet => format!("Increases your pickup range by {}.", pct(v)),
-        Stat::Growth => format!("Increases the experience you gain by {}.", pct(v)),
-        Stat::Armor => format!("Reduces the damage of every hit you take by {}.", num(v)),
-        Stat::Crit => format!(
+        Stat::Might => crate::tr!("Increases all damage you deal by {}.", pct(v)),
+        Stat::MaxHp => crate::tr!("Increases your maximum health by {}.", pct(v)),
+        Stat::Speed => crate::tr!("Increases your movement speed by {}.", pct(v)),
+        Stat::Regen => crate::tr!("Restores {} health every second.", num(v)),
+        Stat::Haste => crate::tr!("Your abilities recharge {} faster.", pct(v)),
+        Stat::Area => crate::tr!("Increases the size of your areas of effect by {}.", pct(v)),
+        Stat::Magnet => crate::tr!("Increases your pickup range by {}.", pct(v)),
+        Stat::Growth => crate::tr!("Increases the experience you gain by {}.", pct(v)),
+        Stat::Armor => crate::tr!("Reduces the damage of every hit you take by {}.", num(v)),
+        Stat::Crit => crate::tr!(
             "Increases your chance to critically strike for double damage by {}.",
             pct(v)
         ),
