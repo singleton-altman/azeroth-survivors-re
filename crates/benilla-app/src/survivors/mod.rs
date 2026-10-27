@@ -59,6 +59,7 @@ impl Plugin for SurvivorsPlugin {
             .add_plugins(bevy::ui_render::UiMaterialPlugin::<fill::FillMaterial>::default())
             .add_plugins(damage_meter::DamageMeterPlugin)
             .add_systems(Startup, hud::setup_hud)
+            .add_systems(Update, i18n::probe_data_locale)
             .add_systems(Update, hero::daylight)
             .add_systems(
                 Update,

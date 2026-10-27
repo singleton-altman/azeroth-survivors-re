@@ -17,6 +17,9 @@
 
 use std::sync::OnceLock;
 
+use bevy::prelude::*;
+use bevy::asset::LoadState;
+
 /// The UI language. `En` is the source language and always present; `ZhCn` is the first
 /// translation.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -61,6 +64,32 @@ pub fn sniff_data_locale(text: &str) {
     }
 }
 
+/// v2 自动探测:开机加载 `Fonts\FZLBJW.TTF`——只有 zhCN 安装的数据链里存在这个文件,
+/// 加载成功即把语言切到中文,失败(enUS 等)保持英文并停止探测。
+/// `WOW_LANG` 显式设置时跳过探测(显式优先)。在探测翻转前就已生成的文本保持原语言。
+pub fn probe_data_locale(
+    server: Res<AssetServer>,
+    mut probe: Local<Option<Handle<Font>>>,
+    mut done: Local<bool>,
+) {
+    if *done {
+        return;
+    }
+    if crate::webenv::var("WOW_LANG").is_some() {
+        *done = true;
+        return;
+    }
+    let handle = probe.get_or_insert_with(|| server.load("mpq://Fonts/FZLBJW.TTF"));
+    match server.get_load_state(handle.id()) {
+        Some(LoadState::Loaded) => {
+            set_lang(Lang::ZhCn);
+            *done = true;
+        }
+        Some(LoadState::Failed(_)) => *done = true,
+        _ => {}
+    }
+}
+
 /// English source → Simplified Chinese, sorted by key (the unit test pins the order).
 static ZH: &[(&str, &str)] = &[
     (", and everything within {} yd of the hit", "，并波及命中点 {} 码内的一切"),
@@ -70,11 +99,19 @@ static ZH: &[(&str, &str)] = &[
     ("Afflicts {} enemies in range with {} damage every second for {} sec", "使范围内 {} 个敌人每秒受到 {} 点伤害，持续 {} 秒"),
     ("All damage", "所有伤害"),
     ("Alliance", "联盟"),
+    ("Anub'Rekhan", "阿努布雷坎"),
+    ("Anubisath Sentinel", "阿努比萨斯哨兵"),
     ("Area size", "范围大小"),
     ("Area {} » {} yd", "范围 {} » {} 码"),
+    ("Aspect of the Cheetah", "猎豹守护"),
     ("Below 85% health, heals you for {d} over {} sec", "生命值低于 85% 时，在 {} 秒内为你恢复 {d} 点生命值"),
+    ("Bjarn", "巴尔恩"),
+    ("Blessing of Freedom", "自由祝福"),
+    ("Blink", "闪现术"),
     ("Bosses", "首领"),
+    ("Buru the Gorger", "暴食者布鲁"),
     ("Casts itself", "自动施放"),
+    ("Charge", "冲锋"),
     ("Choose a Zone", "选择地区"),
     ("Choose your power", "选择你的力量"),
     ("Click a card, or press 1, 2 or 3", "点击卡牌，或按 1、2、3"),
@@ -88,8 +125,12 @@ static ZH: &[(&str, &str)] = &[
     ("Damage meter", "伤害统计"),
     ("Damage taken", "承受伤害"),
     ("Damage {} » {}", "伤害 {} » {}"),
+    ("Dash", "疾奔"),
     ("Deals {d} damage to every enemy in a {} yd cone toward the closest", "朝最近敌人方向释出 {} 码锥形范围，对其中每个敌人造成 {d} 点伤害"),
     ("Deals {d} damage to every enemy within {} yd of you", "对你周围 {} 码内的每个敌人造成 {d} 点伤害"),
+    ("Death Lord", "死亡领主"),
+    ("Devilsaur", "魔暴龙"),
+    ("Doomguard Commander", "末日守卫指挥官"),
     ("Drops a totem for {} sec that burns every enemy within {} yd for {d} damage every 2 sec", "放置一根图腾，持续 {} 秒，每 2 秒对 {} 码内每个敌人造成 {d} 点烈焰伤害"),
     ("Drops a totem for {} sec that hits the nearest enemy within {} yd for {d} damage every second", "放置一根图腾，持续 {} 秒，每秒对 {} 码内最近的敌人造成 {d} 点伤害"),
     ("Druid", "德鲁伊"),
@@ -102,6 +143,7 @@ static ZH: &[(&str, &str)] = &[
     ("Dwarf", "矮人"),
     ("Elwynn Forest", "艾尔文森林"),
     ("Elwynn Forest is safe once more.", "艾尔文森林重归安宁。"),
+    ("Emeriss", "艾莫莉丝"),
     ("Enter World", "进入世界"),
     ("Epic", "史诗"),
     ("Even King Mosh has fallen.", "连莫什王也已倒下。"),
@@ -109,18 +151,27 @@ static ZH: &[(&str, &str)] = &[
     ("Every {} sec, zaps {} within {} yd of you for {d} damage", "每 {} 秒，对你周围 {} 码内的 {} 释放闪电，造成 {d} 点伤害"),
     ("Everything is mastered. Restores all health.", "万法皆通。恢复所有生命值。"),
     ("Experience gained", "获得经验"),
+    ("Fade", "渐隐术"),
     ("Female", "女"),
     ("Fire Plume Ridge", "火羽岭"),
     ("Gates of Ahn'Qiraj", "安其拉之门"),
+    ("Ghost Wolf", "幽魂之狼"),
+    ("Gluth", "格拉斯"),
     ("Gnome", "侏儒"),
     ("Gurubashi Arena", "古拉巴什竞技场"),
+    ("Gurubashi Berserker", "古拉巴什狂暴者"),
+    ("Hakkar", "哈卡"),
+    ("Harvest Golem", "收割傀儡"),
+    ("Harvest Watcher", "农耕收割者"),
     ("Health per second", "每秒恢复生命"),
     ("Healthstone", "治疗石"),
     ("Highest rank", "已达最高等级"),
     ("Hits", "命中"),
     ("Horde", "部落"),
+    ("Howl of Terror", "恐惧嚎叫"),
     ("Human", "人类"),
     ("Hunter", "猎人"),
+    ("Ice Claw Bear", "冰爪熊"),
     ("Increases all damage you deal by {}.", "你造成的所有伤害提高 {}。"),
     ("Increases the experience you gain by {}.", "你获得的经验提高 {}。"),
     ("Increases the size of your areas of effect by {}.", "你的效果范围扩大 {}。"),
@@ -133,14 +184,20 @@ static ZH: &[(&str, &str)] = &[
     ("Kills", "击杀"),
     ("Kills 0", "击杀 0"),
     ("Kills {kills}", "击杀 {kills}"),
+    ("King Bangalash", "班加拉什王"),
+    ("King Mosh", "莫什王"),
+    ("Kurinnaxx", "库林纳克斯"),
     ("LEVEL UP", "升级"),
     ("Lasts {}s » {}s", "持续 {} 秒 » {} 秒"),
     ("Legendary", "传说"),
+    ("Lesser Infernal", "次级地狱火"),
+    ("Lethon", "莱索恩"),
     ("Level", "等级"),
     ("Level 1", "等级 1"),
     ("Level {lo}", "等级 {lo}"),
     ("Level {lo}-{hi}", "等级 {lo}-{hi}"),
     ("Level {}", "等级 {}"),
+    ("Lord Kazzak", "卡扎克领主"),
     ("Mage", "法师"),
     ("Male", "男"),
     ("Maximum health", "最大生命值"),
@@ -153,13 +210,18 @@ static ZH: &[(&str, &str)] = &[
     ("Next rank:", "下一等级："),
     ("Night Elf", "暗夜精灵"),
     ("Nordrassil endures.", "诺达希尔巍然长存。"),
+    ("Obsidian Destroyer", "黑曜石毁灭者"),
     ("Orc", "兽人"),
     ("Paladin", "圣骑士"),
+    ("Patchwerk", "帕奇维克"),
     ("Paused", "已暂停"),
     ("Peak DPS", "峰值 DPS"),
     ("Pickup range", "拾取范围"),
+    ("Plated Stegodon", "铁甲剑龙"),
     ("Play again", "再来一局"),
     ("Priest", "牧师"),
+    ("Princess Huhuran", "哈霍兰公主"),
+    ("Qiraji Champion", "其拉勇士"),
     ("Quit game", "退出游戏"),
     ("Randomize", "随机"),
     ("Rank {level} » {}", "等级 {level} » {}"),
@@ -175,13 +237,21 @@ static ZH: &[(&str, &str)] = &[
     ("Resume", "继续"),
     ("Rogue", "盗贼"),
     ("Shaman", "萨满"),
+    ("Slaughterhouse Protector", "屠宰场守护者"),
+    ("Sprint", "疾跑"),
+    ("Stegodon", "剑龙"),
+    ("Stitched Horror", "缝合恐怖兽"),
+    ("Stone Guardian", "石头守护者"),
     ("Strikes", "打击"),
     ("Strikes a {} yd area {at} for {d} damage", "打击{at}的 {} 码范围，造成 {d} 点伤害"),
     ("Strikes the nearest enemy for {d} damage, then jumps to {} more within {} yd of each other, 15% weaker with every jump", "打击距离最近的敌人，造成 {d} 点伤害，随后跳向 {} 个 {} 码内的其他目标，每次跳跃伤害降低 15%"),
     ("Survived", "存活"),
+    ("Taerar", "泰拉尔"),
     ("Targets {} » {}", "目标 {} » {}"),
     ("Teldrassil", "泰达希尔"),
     ("Teldrassil blooms again.", "泰达希尔再度繁花盛开。"),
+    ("Teremus the Devourer", "吞噬者特雷姆斯"),
+    ("Thaddius", "塔迪乌斯"),
     ("The Barrens", "贫瘠之地"),
     ("The Barrens are yours.", "贫瘠之地已归于你。"),
     ("The Dark Portal", "黑暗之门"),
@@ -193,6 +263,7 @@ static ZH: &[(&str, &str)] = &[
     ("Tirisfal is at peace.", "提瑞斯法重归安息。"),
     ("Total damage", "总伤害"),
     ("Troll", "巨魔"),
+    ("Tyrant Devilsaur", "暴虐魔暴龙"),
     ("Uncommon", "优秀"),
     ("Undead", "亡灵"),
     ("Victory!", "胜利！"),
@@ -204,7 +275,11 @@ static ZH: &[(&str, &str)] = &[
     ("When enemies close in, deals {d} damage to every attacker for {} sec", "当敌人靠近时，对每个攻击者造成 {d} 点伤害，持续 {} 秒"),
     ("XP {} / {}", "经验 {} / {}"),
     ("You have fallen", "你已阵亡"),
+    ("You have learned {}! Press F.", "你学会了 {}！按 F 使用。"),
+    ("Young Black Bear", "幼黑熊"),
+    ("Young Forest Bear", "幼森林熊"),
     ("Your abilities recharge {} faster.", "你的技能充能速度加快 {}。"),
+    ("Ysondre", "伊索德雷"),
     ("absorbed", "吸收"),
     ("an enemy", "一个敌人"),
     ("around you", "你周围"),
@@ -226,6 +301,7 @@ static ZH: &[(&str, &str)] = &[
     ("the {n} nearest enemies", "距离最近的 {n} 个敌人"),
     ("the {n} toughest enemies in range", "范围内 {n} 个最强的敌人"),
     ("thorns", "荆棘"),
+    ("{} approaches!", "{} 来袭！"),
     ("{} chance to critically strike for double damage", "有 {} 几率造成双倍伤害的暴击"),
     ("{} damage per second", "每秒 {} 伤害"),
     ("{} enemies", "{} 个敌人"),
