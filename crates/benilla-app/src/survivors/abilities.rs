@@ -13,6 +13,9 @@ use crate::net::{FieldChanged, Guid, ObjectStore};
 /// One blow landing on one enemy.
 #[derive(Message, Clone)]
 pub(super) struct Hit {
+    /// The ability that threw this hit, for the damage meter's attribution; `"melee"` on the
+    /// unattributed direct-constructor path and `"thorns"` on reflected damage.
+    pub key: &'static str,
     pub target: Entity,
     pub damage: f32,
     pub dot: f32,
@@ -29,6 +32,7 @@ pub(super) struct Hit {
 impl Hit {
     pub fn direct(target: Entity, damage: f32, crit: bool) -> Self {
         Self {
+            key: "melee",
             target,
             damage,
             dot: 0.0,
@@ -50,6 +54,8 @@ pub(super) struct PendingHits(pub Vec<(f32, Hit)>);
 /// A ground spell's area, ticking on whatever stands in it.
 #[derive(Component)]
 pub(super) struct GroundArea {
+    /// The ability that dropped this area, for the damage meter's attribution.
+    key: &'static str,
     damage: f32,
     dot: f32,
     dot_dur: f32,
@@ -65,6 +71,8 @@ pub(super) struct GroundArea {
 
 #[derive(Component)]
 pub(super) struct Totem {
+    /// The ability that dropped this totem, for the damage meter's attribution.
+    key: &'static str,
     cast: u32,
     damage: f32,
     range: f32,
@@ -104,6 +112,7 @@ fn mark_secs(def: &AbilityDef, duration: f32) -> f32 {
 
 fn hit_for(def: &AbilityDef, p: &Params, target: Entity, damage: f32, crit: bool) -> Hit {
     Hit {
+        key: def.key,
         target,
         damage,
         dot: p.dot,
@@ -346,6 +355,7 @@ pub(super) fn cast_abilities(
                         };
                         let burst = def.duration <= 0.0;
                         commands.entity(area).insert(GroundArea {
+                            key: def.key,
                             damage: p.dmg,
                             dot: p.dot,
                             dot_dur: if burst { 5.0 } else { 0.0 },
@@ -514,6 +524,7 @@ pub(super) fn cast_abilities(
                         0.0,
                     );
                     commands.entity(totem).insert(Totem {
+                        key: def.key,
                         cast: def.totem.1,
                         damage: p.dmg,
                         range: def.range,
@@ -579,6 +590,7 @@ pub(super) fn tick_areas(
                 }
                 let (dmg, crit) = roll(&mut rng, stats.crit, area.damage);
                 hits.write(Hit {
+                    key: area.key,
                     target: f.e,
                     damage: dmg,
                     dot: area.dot,
@@ -621,6 +633,7 @@ pub(super) fn tick_areas(
             for f in &targets {
                 let (dmg, crit) = roll(&mut rng, stats.crit, totem.damage);
                 hits.write(Hit {
+                    key: totem.key,
                     color: COLOR_SPELL,
                     ..Hit::direct(f.e, dmg, crit)
                 });
@@ -646,6 +659,7 @@ pub(super) fn tick_areas(
                 now,
                 delay,
                 Hit {
+                    key: totem.key,
                     color: COLOR_SPELL,
                     ..Hit::direct(f.e, dmg, crit)
                 },
@@ -741,6 +755,7 @@ pub(super) fn apply_hits(
         if dmg > 0.0 {
             en.hp -= dmg;
             run.damage_done += f64::from(dmg);
+            run.record_damage(h.key, f64::from(dmg));
             fx.number(e, dmg, h.crit, h.color);
             if let Effect::Drain(frac) = h.effect {
                 let max = run.stats().max_hp;
@@ -752,6 +767,7 @@ pub(super) fn apply_hits(
                 en.dots.remove(0);
             }
             en.dots.push(enemies::Dot {
+                key: h.key,
                 dps: h.dot,
                 left: h.dot_dur,
                 tick: 1.0,
@@ -789,6 +805,7 @@ pub(super) fn apply_hits(
         if en.dead || en.dots.is_empty() {
             continue;
         }
+        let mut dealt_by_key: Vec<(&'static str, f32)> = Vec::new();
         let mut dealt = 0.0;
         for d in &mut en.dots {
             d.left -= dt;
@@ -796,12 +813,19 @@ pub(super) fn apply_hits(
             if d.tick <= 0.0 {
                 d.tick += 1.0;
                 dealt += d.dps;
+                match dealt_by_key.iter_mut().find(|(k, _)| *k == d.key) {
+                    Some((_, v)) => *v += d.dps,
+                    None => dealt_by_key.push((d.key, d.dps)),
+                }
             }
         }
         en.dots.retain(|d| d.left > 0.0);
         if dealt > 0.0 {
             en.hp -= dealt;
             run.damage_done += f64::from(dealt);
+            for (key, amount) in &dealt_by_key {
+                run.record_damage(key, f64::from(*amount));
+            }
             fx.number(e, dealt, false, COLOR_SPELL);
             if en.hp <= 0.0 {
                 kill(&mut commands, &mut run, e, tf.translation, &mut en);

@@ -14,6 +14,7 @@ mod grade;
 mod hero;
 mod hud;
 pub(crate) mod i18n;
+mod damage_meter;
 mod menu;
 mod minimap;
 mod mobility;
@@ -51,10 +52,12 @@ impl Plugin for SurvivorsPlugin {
             .init_resource::<enemies::Spawner>()
             .init_resource::<hud::Offer>()
             .init_resource::<cards::PendingPick>()
+            .init_resource::<damage_meter::MeterOpen>()
             .add_message::<abilities::Hit>()
             .add_message::<enemies::Loot>()
             .add_plugins(bevy::ui_render::UiMaterialPlugin::<hud::SweepUiMaterial>::default())
             .add_plugins(bevy::ui_render::UiMaterialPlugin::<fill::FillMaterial>::default())
+            .add_plugins(damage_meter::DamageMeterPlugin)
             .add_systems(Startup, hud::setup_hud)
             .add_systems(Update, hero::daylight)
             .add_systems(
@@ -270,6 +273,16 @@ pub(super) struct Run {
     pub dead_t: Option<f32>,
     pub next_guid: u64,
     pub damage_done: f64,
+    /// Per-ability damage totals for the meter, newest keys appended on first hit.
+    pub damage_by_ability: Vec<(&'static str, f64)>,
+    /// (run seconds, damage) samples inside the meter's rolling DPS window.
+    pub dps_samples: std::collections::VecDeque<(f64, f64)>,
+    /// DPS over the rolling window, as of the last recorded hit.
+    pub dps_now: f64,
+    /// The best rolling-window DPS seen this run.
+    pub peak_dps: f64,
+    /// Damage the hero took, for the meter's taken line.
+    pub damage_taken: f64,
     /// Bumped whenever abilities or passives change, so the HUD rebuilds the icon rows once.
     pub version: u32,
     /// A centre-screen announcement and its seconds left.
@@ -304,9 +317,40 @@ impl Default for Run {
             dead_t: None,
             next_guid: 1,
             damage_done: 0.0,
+            damage_by_ability: Vec::new(),
+            dps_samples: std::collections::VecDeque::new(),
+            dps_now: 0.0,
+            peak_dps: 0.0,
+            damage_taken: 0.0,
             version: 0,
             banner: None,
         }
+    }
+}
+
+/// The rolling DPS window the meter averages over, in seconds.
+const DPS_WINDOW: f64 = 5.0;
+
+impl Run {
+    /// File one hit into the meter: per-ability totals, the rolling DPS window and the peak.
+    pub fn record_damage(&mut self, key: &'static str, amount: f64) {
+        let t = self.elapsed as f64;
+        match self.damage_by_ability.iter_mut().find(|(k, _)| *k == key) {
+            Some((_, total)) => *total += amount,
+            None => self.damage_by_ability.push((key, amount)),
+        }
+        self.dps_samples.push_back((t, amount));
+        while matches!(self.dps_samples.front(), Some(&(ts, _)) if t - ts > DPS_WINDOW) {
+            self.dps_samples.pop_front();
+        }
+        let sum: f64 = self.dps_samples.iter().map(|(_, d)| d).sum();
+        let span = self
+            .dps_samples
+            .front()
+            .map_or(t, |(ts, _)| t - *ts)
+            .clamp(1.0, DPS_WINDOW);
+        self.dps_now = sum / span;
+        self.peak_dps = self.peak_dps.max(self.dps_now);
     }
 }
 

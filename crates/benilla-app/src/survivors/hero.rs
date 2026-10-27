@@ -410,6 +410,7 @@ pub(super) fn hurt_hero(run: &mut Run, raw: f32) -> f32 {
         dmg -= absorbed;
     }
     run.hp -= dmg;
+    run.damage_taken += f64::from(dmg);
     dmg
 }
 

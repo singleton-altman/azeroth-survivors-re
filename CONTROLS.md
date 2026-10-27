@@ -10,6 +10,7 @@
 | Playing | **Space** | jump |
 | Playing | **F** (from level 5) | your class's movement spell: Blink, Charge… aim at the cursor |
 | Playing | **C** | unlock / lock the camera |
+| Playing | **V** | toggle the damage meter window |
 | Any | **G** | toggle the picture polish (`?grade=0` starts it off) |
 | Playing | **mouse wheel** | zoom, from over the shoulder out to 70 yd |
 | Playing | **drag** (camera unlocked) | swing and tilt the camera |

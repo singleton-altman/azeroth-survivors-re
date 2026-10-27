@@ -72,7 +72,10 @@ static ZH: &[(&str, &str)] = &[
     ("Click a card, or press 1, 2 or 3", "点击卡牌，或按 1、2、3"),
     ("Common", "普通"),
     ("Cooldown {}s » {}s", "冷却 {} 秒 » {} 秒"),
+    ("DPS", "DPS"),
     ("Damage", "伤害"),
+    ("Damage meter", "伤害统计"),
+    ("Damage taken", "承受伤害"),
     ("Damage {} » {}", "伤害 {} » {}"),
     ("Druid", "德鲁伊"),
     ("Dwarf", "矮人"),
@@ -102,6 +105,7 @@ static ZH: &[(&str, &str)] = &[
     ("Orc", "兽人"),
     ("Paladin", "圣骑士"),
     ("Paused", "已暂停"),
+    ("Peak DPS", "峰值 DPS"),
     ("Play again", "再来一局"),
     ("Priest", "牧师"),
     ("Quit game", "退出游戏"),
@@ -116,6 +120,7 @@ static ZH: &[(&str, &str)] = &[
     ("Survived", "存活"),
     ("Targets {} » {}", "目标 {} » {}"),
     ("The horde was too much this time.", "这一战，部落实在太多了。"),
+    ("Total damage", "总伤害"),
     ("Troll", "巨魔"),
     ("Uncommon", "优秀"),
     ("Undead", "亡灵"),
@@ -128,9 +133,11 @@ static ZH: &[(&str, &str)] = &[
     ("freezing them in place for {} sec", "将其定身 {} 秒"),
     ("healing you for {} of the damage", "为你恢复所造成伤害的 {}"),
     ("killing them outright below {} health", "目标生命值低于 {} 时将其直接击杀"),
+    ("melee", "自动攻击"),
     ("sending them fleeing for {} sec", "使其逃跑，持续 {} 秒"),
     ("slowing them by {} for {} sec", "使其速度降低 {}，持续 {} 秒"),
     ("stunning them for {} sec", "使其昏迷 {} 秒"),
+    ("thorns", "荆棘"),
 ];
 
 /// The Chinese entry for an English source string, or `en` itself when untranslated.

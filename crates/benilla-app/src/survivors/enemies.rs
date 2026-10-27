@@ -38,6 +38,8 @@ pub(super) struct Enemy {
 }
 
 pub(super) struct Dot {
+    /// The DoT-applying ability, for the damage meter's attribution.
+    pub key: &'static str,
     pub dps: f32,
     pub left: f32,
     pub tick: f32,
@@ -369,7 +371,10 @@ pub(super) fn move_enemies(
                 fx.number(hero_e, taken, false, COLOR_HURT);
             }
             if run.thorns_t > 0.0 {
-                hits.write(Hit::direct(ent, run.thorns * run.stats().might, false));
+                hits.write(Hit {
+                    key: "thorns",
+                    ..Hit::direct(ent, run.thorns * run.stats().might, false)
+                });
             }
         }
     }

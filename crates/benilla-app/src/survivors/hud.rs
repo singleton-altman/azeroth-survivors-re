@@ -272,7 +272,7 @@ fn icon(spell: u32, size: f32) -> impl Bundle {
     )
 }
 
-fn spell_name(spells: Option<&crate::ui_action::Spells>, spell: u32, fallback: &str) -> String {
+pub(super) fn spell_name(spells: Option<&crate::ui_action::Spells>, spell: u32, fallback: &str) -> String {
     spells
         .and_then(|s| s.catalog.get(spell))
         .map(|d| d.name.clone())
@@ -1174,7 +1174,7 @@ pub(super) fn describe_card(
             CardText {
                 spell: o.def.spell,
                 name: spell_name(spells, o.def.spell, o.def.key),
-                tag: crate::tr!("Rank {} » {next}", o.level),
+                tag: crate::tr!("Rank {} » {next}", o.level, next),
                 tag_color: Color::WHITE,
                 desc: lines.join("\n"),
                 ranks: Some((o.level, data::MAX_ABILITY_LEVEL)),
@@ -1690,7 +1690,7 @@ pub(super) fn refresh_results(
 }
 
 /// 12.3k, 4.5M.
-fn compact(v: f64) -> String {
+pub(super) fn compact(v: f64) -> String {
     if v >= 1e6 {
         format!("{:.1}M", v / 1e6)
     } else if v >= 1e4 {
