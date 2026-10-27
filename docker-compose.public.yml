@@ -1,0 +1,21 @@
+# 公网/远程访问的认证层 — 叠加在主 compose 之上使用, wenilla-host 本身没有鉴权,
+# 直接暴露 = 任何人可拉走全部游戏数据, 所以任何隧道都必须指到这里的 caddy(带密码)。
+#
+# 用法:
+#   docker compose -f docker-compose.yml -f docker-compose.public.yml up -d
+#
+# 然后隧道/内网穿透指向 http://127.0.0.1:8443 (而不是 8090!)。
+# 改密码: docker run --rm caddy:2-alpine caddy hash-password --plaintext '新密码'
+#         把输出替换到 ./caddy/Caddyfile 里的哈希, 再重启 caddy 容器。
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: azeroth-survivors-auth
+    depends_on:
+      - azeroth-survivors
+    ports:
+      # 只绑 loopback: 真正暴露由隧道(cloudflared/frp)发起出站连接, 家用路由不开入站端口
+      - "127.0.0.1:8443:8443"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+    restart: unless-stopped

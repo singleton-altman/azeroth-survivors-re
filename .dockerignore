@@ -1,0 +1,10 @@
+# Never send the huge, host-side artifacts into the build context.
+wow-data/
+tools/
+target/
+.git/
+.v2c/
+.video_agent/
+.mimosa/
+*.md
+!README.md

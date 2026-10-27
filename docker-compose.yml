@@ -1,0 +1,16 @@
+services:
+  azeroth-survivors:
+    build:
+      context: .
+      args:
+        # webgpu (default, the real in-world renderer) or webgl2 (fallback, glue screens only)
+        WEB_BACKEND: webgpu
+    image: azeroth-survivors:local
+    container_name: azeroth-survivors
+    # Loopback-only on the host: wenilla-host serves /data unauthenticated.
+    ports:
+      - "127.0.0.1:8090:8090"
+    volumes:
+      # Game data fetched once on the host: ./scripts/fetch-data.sh (or make fetch-data)
+      - ./wow-data:/app/wow-data:ro
+    restart: unless-stopped

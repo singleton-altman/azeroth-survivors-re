@@ -17,9 +17,10 @@
 
 ## 建议路径
 
-1. 把 `survivors/*.rs` 的字面量抽成静态 catalog(仿 `benilla-ui/src/messages` 的表驱动风格),键为英文原文、值为译文,缺省回退英文;
-2. 语言来源:从客户端数据的 locale 推导(zhCN 数据 → 中文),避免再造配置面;
-3. CJK 渲染:zhCN 数据自带 `fonts.MPQ`(26MB,含中文字体),渲染管线按客户端机制读字体;若实测有缺字形,优先查 `benilla-ui` 的 layout/justify 与 `benilla-formats` 的字体解析。
+1. ✅ **已完成(2026-10-27)**:`survivors/i18n.rs` — 69 条 zh 目录(静态排序表 + 二分查找)、`t`/`tf`(支持 `{}` 顺序与 `{name}` 命名占位,UTF-8 安全)与 `tr!` 宏;调用点已迁移:menu、cards 品质名、char_select(字体/种族/职业)、hud(HUD 行、升级卡、暂停菜单、结算屏、效果描述)。
+2. 语言来源(v1):`WOW_LANG`(`webenv::var`,网页即 `?lang=zhcn`)。自动探测数据 locale 留 v2——HUD 字体在 spawn 时选定,中途切语言会出豆腐块;探测需提前到 boot(探测点:`Fonts\FZLBJW.TTF` 只存在于 zhCN 数据)。
+3. **Phase 2(未做)**:`ability_body` 的复合法术描述(Bolt/Nova/Ground/Chain 等 ~15 个分支)仍是英文,迁移方式与上面相同(逐分支 `tr!`);`data.rs` 的 zone/victory 文案(604 条字面量,按 key 建 zh 表)。
+4. CJK 渲染:zhCN 数据自带 `fonts.MPQ`(26MB,含中文字体),渲染管线按客户端机制读字体;若实测有缺字形,优先查 `benilla-ui` 的 layout/justify 与 `benilla-formats` 的字体解析。
 
 ## 本机开发
 

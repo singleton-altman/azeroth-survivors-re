@@ -1,0 +1,16 @@
+{
+	admin off
+}
+:8443 {
+	log {
+		output stdout
+		format json
+	}
+	basic_auth {
+		wow $2a$14$Sg6veVCEoA78WKXiwNJSpO91d5rvn6Dq9YXBtwTlY26N4DokZdx3W
+		player1 $2a$14$Y1hog1Bkp9RPG9MjHmRby.HLGG8WIHmk9w6RJo8rTCwcu8YDgxycC
+		player2 $2a$14$yPjWduKBFb4o6wmS98aZVuFvSIMWEvBIcIedkB0OGRFLejRkQBXzK
+		player3 $2a$14$.gxHQE/babABUPHcPbh4uOThAtcyptGpQvrZhviiSy3ZfqZHqOJZu
+	}
+	reverse_proxy azeroth-survivors:8090
+}
