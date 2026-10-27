@@ -205,7 +205,7 @@ pub(super) fn spawn_enemies(
             );
             spawn_enemy(&mut commands, &mut run, def, pos, hpos, false);
         }
-        run.banner = Some(("They're surrounding you!".into(), 3.0));
+        run.banner = Some((crate::tr!("They're surrounding you!").into(), 3.0));
     }
 
     spawner.timer -= time.delta_secs();

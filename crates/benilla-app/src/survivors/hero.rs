@@ -34,19 +34,23 @@ const ORBIT_RATE: f32 = 0.008;
 /// Elevation clamp (radians): ~10°..~83° above the horizon, so the camera never dives underground.
 const PITCH_MIN: f32 = 0.18;
 const PITCH_MAX: f32 = 1.45;
-/// The locked view's tilt.
+/// The locked 2.5D view's tilt: high enough to read the field, low enough to keep the models'
+/// silhouettes. `C` (or the phone's camera button) returns to it exactly.
 const FIXED_PITCH: f32 = 61.0 * std::f32::consts::PI / 180.0;
 /// Wheel zoom range, yards from the hero's shoulders.
 const ZOOM_MIN: f32 = 1.5;
 const ZOOM_MAX: f32 = 70.0;
+/// While locked the wheel still zooms, but inside the 2.5D view's field range: an over-the-
+/// shoulder distance would no longer be a top-down view.
+const LOCKED_ZOOM: (f32, f32) = (16.0, 46.0);
 
-/// Whether the camera is locked; `C` toggles it.
+/// Whether the camera is locked; `C` and the phone's camera button toggle it.
 #[derive(Clone, Copy, PartialEq, Eq, Default)]
 pub(super) enum CamMode {
-    /// Locked top-down (58°), laptop-friendly — the original feel.
+    /// Locked 2.5D: no yaw, [`FIXED_PITCH`], the field zoom range. Dragging does nothing.
     #[default]
     Fixed,
-    /// Unlocked: a mouse drag swings and tilts it around the hero.
+    /// Unlocked: a drag swings and tilts it around the hero.
     Orbit,
 }
 
@@ -61,6 +65,38 @@ pub(super) struct CamRig {
     pub mode: CamMode,
 }
 
+impl CamRig {
+    /// Swings and tilts an unlocked camera by a drag, in logical pixels; a locked one ignores it.
+    pub(super) fn orbit_by(&mut self, delta: Vec2) {
+        if self.mode != CamMode::Orbit {
+            return;
+        }
+        self.yaw -= delta.x * ORBIT_RATE;
+        self.pitch = (self.pitch + delta.y * ORBIT_RATE).clamp(PITCH_MIN, PITCH_MAX);
+    }
+
+    /// The lock toggle: back to the exact 2.5D view, or free to swing and tilt.
+    pub(super) fn toggle_lock(&mut self) {
+        match self.mode {
+            CamMode::Fixed => self.mode = CamMode::Orbit,
+            CamMode::Orbit => {
+                self.mode = CamMode::Fixed;
+                self.yaw = 0.0;
+                self.pitch = FIXED_PITCH;
+                self.dist = self.dist.clamp(LOCKED_ZOOM.0, LOCKED_ZOOM.1);
+            }
+        }
+    }
+
+    /// The wheel's range: the 2.5D field while locked, shoulder-to-battlefield while free.
+    pub(super) fn zoom_range(&self) -> (f32, f32) {
+        match self.mode {
+            CamMode::Fixed => LOCKED_ZOOM,
+            CamMode::Orbit => (ZOOM_MIN, ZOOM_MAX),
+        }
+    }
+}
+
 impl Default for CamRig {
     fn default() -> Self {
         Self {
@@ -70,6 +106,32 @@ impl Default for CamRig {
             pitch: FIXED_PITCH,
             mode: CamMode::Fixed,
         }
+    }
+}
+
+/// The saved view lock, `benilla-config/survivors-camera.txt`: `lock` or `free`. Missing means the
+/// locked default, which is what a fresh player gets.
+fn camera_path() -> Option<std::path::PathBuf> {
+    crate::local_state::home().map(|h| h.join("survivors-camera.txt"))
+}
+
+/// Remember the lock so a reload keeps the view the player chose.
+pub(super) fn save_view(rig: &CamRig) {
+    let Some(path) = camera_path() else {
+        return;
+    };
+    let text = match rig.mode {
+        CamMode::Fixed => "lock",
+        CamMode::Orbit => "free",
+    };
+    let _ = crate::local_state::write_atomic(&path, text);
+}
+
+/// At startup: only a saved `free` unlocks the camera; anything else starts in the 2.5D lock.
+pub(super) fn restore_view(mut rig: ResMut<CamRig>) {
+    let saved = camera_path().and_then(|p| crate::local_state::read_to_string(&p).ok());
+    if saved.as_deref().map(str::trim) == Some("free") {
+        rig.mode = CamMode::Orbit;
     }
 }
 
@@ -144,39 +206,57 @@ pub(super) fn daylight(debug: Option<ResMut<benilla_world::dev_state::DebugState
 #[derive(Resource, Default)]
 pub(super) struct AimPoint(pub(super) Option<Vec3>);
 
-/// Cast the cursor onto the terrain: the camera ray meets the plane at the hero's height, then the
+/// Cast a screen position onto the terrain: the camera ray meets the plane at `y_hint`, then the
 /// terrain height there, a few times over, which settles on hills within a frame.
+pub(super) fn ground_under(
+    cam: &Camera,
+    cam_tf: &Transform,
+    screen: Vec2,
+    y_hint: f32,
+    world: &WorldPoint<'_, '_>,
+) -> Option<Vec3> {
+    let ray = cam
+        .viewport_to_world(&GlobalTransform::from(*cam_tf), screen)
+        .ok()?;
+    let mut y = y_hint;
+    let mut at = None;
+    for _ in 0..4 {
+        if ray.direction.y.abs() < 1e-4 {
+            break;
+        }
+        let t = (y - ray.origin.y) / ray.direction.y;
+        if t <= 0.0 {
+            break;
+        }
+        let p = ray.origin + *ray.direction * t;
+        at = Some(p);
+        match world.terrain_height_under(p) {
+            Some(h) if (h - y).abs() > 0.05 => y = h,
+            _ => break,
+        }
+    }
+    at
+}
+
+/// Cast the cursor onto the terrain. A touched aim outranks it for as long as it is held: a page
+/// driven by a finger has no cursor, and left alone this would clear the point the touch set.
 pub(super) fn aim_cursor(
     windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
     cams: Query<(&Camera, &Transform), With<WorldCamera>>,
     hero: Query<&Transform, (With<Hero>, Without<WorldCamera>)>,
     world: WorldPoint,
+    touch: Res<super::touch::Touch>,
     mut aim: ResMut<AimPoint>,
 ) {
+    if touch.aim_hold > 0.0 {
+        return;
+    }
     let point = (|| {
-        let cursor = windows.single().ok()?.cursor_position()?;
+        let window = windows.single().ok()?;
+        let cursor = window.cursor_position()?;
         let (cam, tf) = cams.single().ok()?;
-        let ray = cam
-            .viewport_to_world(&GlobalTransform::from(*tf), cursor)
-            .ok()?;
-        let mut y = hero.single().ok()?.translation.y;
-        let mut at = None;
-        for _ in 0..4 {
-            if ray.direction.y.abs() < 1e-4 {
-                break;
-            }
-            let t = (y - ray.origin.y) / ray.direction.y;
-            if t <= 0.0 {
-                break;
-            }
-            let p = ray.origin + *ray.direction * t;
-            at = Some(p);
-            match world.terrain_height_under(p) {
-                Some(h) if (h - y).abs() > 0.05 => y = h,
-                _ => break,
-            }
-        }
-        at
+        let y = hero.single().ok()?.translation.y;
+        ground_under(cam, tf, cursor, y, &world)
     })();
     if aim.0 != point {
         aim.0 = point;
@@ -195,6 +275,7 @@ pub(super) fn drive_hero(
     aim: Res<AimPoint>,
     world: WorldPoint,
     auto: Option<Res<super::auto::Auto>>,
+    touch: Res<super::touch::Touch>,
     mut player: ResMut<crate::player::Player>,
     mut hero: Query<(&mut Transform, &mut MovementState, &mut Hero)>,
 ) {
@@ -208,19 +289,24 @@ pub(super) fn drive_hero(
             {
                 dir = super::auto::steer(auto);
             } else if *phase.get() == Phase::Playing && run.dead_t.is_none() {
-                if keys.any_pressed([KeyCode::KeyW, KeyCode::ArrowUp]) {
-                    dir.z -= 1.0;
-                }
-                if keys.any_pressed([KeyCode::KeyS, KeyCode::ArrowDown]) {
-                    dir.z += 1.0;
-                }
-                if keys.any_pressed([KeyCode::KeyA, KeyCode::ArrowLeft]) {
-                    dir.x -= 1.0;
-                }
-                if keys.any_pressed([KeyCode::KeyD, KeyCode::ArrowRight]) {
-                    dir.x += 1.0;
+                if touch.move_dir != Vec3::ZERO {
+                    dir = touch.move_dir;
+                } else {
+                    if keys.any_pressed([KeyCode::KeyW, KeyCode::ArrowUp]) {
+                        dir.z -= 1.0;
+                    }
+                    if keys.any_pressed([KeyCode::KeyS, KeyCode::ArrowDown]) {
+                        dir.z += 1.0;
+                    }
+                    if keys.any_pressed([KeyCode::KeyA, KeyCode::ArrowLeft]) {
+                        dir.x -= 1.0;
+                    }
+                    if keys.any_pressed([KeyCode::KeyD, KeyCode::ArrowRight]) {
+                        dir.x += 1.0;
+                    }
                 }
                 // In orbit mode WASD is camera-relative; in fixed mode it stays world-relative.
+                // The stick reads the screen the same way, so it takes the same turn.
                 if rig.mode == CamMode::Orbit {
                     let (sy, cy) = rig.yaw.sin_cos();
                     dir = Vec3::new(dir.x * cy + dir.z * sy, 0.0, dir.z * cy - dir.x * sy);
@@ -271,8 +357,10 @@ pub(super) fn drive_hero(
             }
             let ground = world.terrain_height_under(pos).unwrap_or(pos.y);
             let playing = *phase.get() == Phase::Playing && run.dead_t.is_none();
-            // Space hops: lift off the terrain, then gravity brings the hero back down.
-            if playing && keys.just_pressed(KeyCode::Space) && hm.vy == 0.0 && hm.air == 0.0 {
+            // Space hops: lift off the terrain, then gravity brings the hero back down. On a
+            // touch page the on-screen button stands in for the key.
+            let hop = keys.just_pressed(KeyCode::Space) || touch.jump;
+            if playing && hop && hm.vy == 0.0 && hm.air == 0.0 {
                 hm.vy = JUMP_SPEED;
             }
             if playing && (hm.vy != 0.0 || hm.air > 0.0) {
@@ -330,7 +418,8 @@ pub(super) fn drop_stray_buttons(
     }
 }
 
-/// A slow orbit at the menu; in play, top-down until `C` unlocks it to swing and tilt.
+/// A slow orbit at the menu; in play, the locked 2.5D view until `C` (or the phone's camera
+/// button) unlocks it to swing and tilt.
 pub(super) fn place_camera(
     time: Res<Time<Real>>,
     phase: Res<State<Phase>>,
@@ -341,31 +430,28 @@ pub(super) fn place_camera(
     keys: Res<ButtonInput<KeyCode>>,
     player: Res<crate::player::Player>,
     world: WorldPoint,
+    windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
     hero: Query<&Transform, (With<Hero>, Without<WorldCamera>)>,
     mut cams: Query<&mut Transform, With<WorldCamera>>,
 ) {
-    // `C` unlocks the camera to swing and tilt; locking it again snaps back to the top-down view,
-    // so world-relative WASD lines up with the screen again.
+    // Locking snaps back to the exact 2.5D view, so world-relative movement lines up with the
+    // screen again; the choice is remembered (`survivors-camera.txt`).
     if keys.just_pressed(KeyCode::KeyC) {
-        rig.mode = match rig.mode {
-            CamMode::Fixed => CamMode::Orbit,
-            CamMode::Orbit => {
-                rig.yaw = 0.0;
-                rig.pitch = FIXED_PITCH;
-                CamMode::Fixed
-            }
-        };
+        rig.toggle_lock();
+        save_view(&rig);
     }
     // With no hero yet, the focus `drive_hero` grounded.
     let focus = hero.single().map_or(player.pos, |t| t.translation);
-    // Multiplicative, so a notch moves as far by eye close in as far out; all the way down to an
-    // over-the-shoulder view.
+    // Multiplicative, so a notch moves as far by eye close in as far out; the range is the
+    // locked view's field while locked, and shoulder-to-battlefield while free.
+    let (zoom_min, zoom_max) = rig.zoom_range();
     for w in wheel.read() {
         let notches = match w.unit {
             MouseScrollUnit::Line => w.y,
             MouseScrollUnit::Pixel => w.y * 0.02,
         };
-        rig.dist = (rig.dist * (1.0 - 0.12 * notches).clamp(0.5, 1.5)).clamp(ZOOM_MIN, ZOOM_MAX);
+        rig.dist =
+            (rig.dist * (1.0 - 0.12 * notches).clamp(0.5, 1.5)).clamp(zoom_min, zoom_max);
     }
     let (eye, look) = if *phase.get() == Phase::Menu {
         rig.orbit += time.delta_secs() * 0.2;
@@ -376,15 +462,19 @@ pub(super) fn place_camera(
         )
     } else {
         // Unlocked, either mouse button drags the camera around the hero, as in WoW.
-        if rig.mode == CamMode::Orbit && mouse.any_pressed([MouseButton::Left, MouseButton::Right])
-        {
-            rig.yaw -= motion.delta.x * ORBIT_RATE;
-            rig.pitch = (rig.pitch + motion.delta.y * ORBIT_RATE).clamp(PITCH_MIN, PITCH_MAX);
+        if mouse.any_pressed([MouseButton::Left, MouseButton::Right]) {
+            rig.orbit_by(motion.delta);
         }
         let (sy, cy) = rig.yaw.sin_cos();
         let (sp, cp) = rig.pitch.sin_cos();
         let look = focus + Vec3::Y * 1.4;
-        let mut eye = look + Vec3::new(cp * sy, sp, cp * cy) * rig.dist;
+        // A narrow window (a phone held upright) would otherwise see a sliver of the field; back
+        // the camera off until the horizontal view is the 16:10 the mode is laid out for.
+        let fit = windows.single().ok().map_or(1.0, |w| {
+            let aspect = w.width() / w.height().max(1.0);
+            (1.6 / aspect).clamp(1.0, 2.2)
+        });
+        let mut eye = look + Vec3::new(cp * sy, sp, cp * cy) * rig.dist * fit;
         // Never under the ground: a low tilt on a slope would bury the lens.
         if let Some(h) = world.terrain_height_under(eye) {
             eye.y = eye.y.max(h + 0.6);

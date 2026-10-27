@@ -181,6 +181,7 @@ pub(super) fn cast_mobility(
     mut enemies: Query<(Entity, &Transform, &mut Enemy), Without<Hero>>,
     selection: Res<super::Selection>,
     aim: Res<hero::AimPoint>,
+    touch: Res<super::touch::Touch>,
     mut fx: Fx,
 ) {
     let dt = time.delta_secs();
@@ -188,7 +189,9 @@ pub(super) fn cast_mobility(
     m.cd = (m.cd - dt).max(0.0);
     m.haste_t = (m.haste_t - dt).max(0.0);
     m.vanish_t = (m.vanish_t - dt).max(0.0);
-    if *phase.get() != Phase::Playing || run.dead_t.is_some() || !keys.just_pressed(KEY) {
+    // The on-screen cast button is the key's twin on a touch page.
+    let cast = keys.just_pressed(KEY) || touch.cast;
+    if *phase.get() != Phase::Playing || run.dead_t.is_some() || !cast {
         return;
     }
     let Some(def) = run.mobility() else { return };

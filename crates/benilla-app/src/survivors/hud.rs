@@ -2221,7 +2221,7 @@ pub(super) fn icon_tooltip(
                 TipLine::new(spell_name(spells.as_deref(), m.spell, m.name), Color::WHITE).header(),
                 TipLine::new("Press F", Color::WHITE)
                     .right(format!("{} sec cooldown", num(m.cooldown)), Color::WHITE),
-                TipLine::new(m.desc, GOLD),
+                TipLine::new(crate::tr!(m.desc), GOLD),
             ]
         }),
     };
