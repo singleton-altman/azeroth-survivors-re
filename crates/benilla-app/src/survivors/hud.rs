@@ -506,8 +506,8 @@ pub(super) fn setup_hud(
                         ..default()
                     })
                     .with_children(|line| {
-                        line.spawn((LevelText, text(f, "Level 1", 14.0, GOLD)));
-                        line.spawn((KillText, text(f, "Kills 0", 14.0, Color::WHITE)));
+                        line.spawn((LevelText, text(f, crate::tr!("Level 1"), 14.0, GOLD)));
+                        line.spawn((KillText, text(f, crate::tr!("Kills 0"), 14.0, Color::WHITE)));
                     });
                 });
                 // The minimap cluster's column.
@@ -694,10 +694,10 @@ pub(super) fn setup_hud(
                 UiTransform::default(),
                 bevy::ui::FocusPolicy::Pass,
             ));
-            root.spawn(centered(f, "LEVEL UP", 52.0, GOLD));
+            root.spawn(centered(f, crate::tr!("LEVEL UP"), 52.0, GOLD));
             root.spawn((
                 LevelUpSub,
-                centered(f, "Choose your power", 16.0, Color::srgb(0.85, 0.78, 0.6)),
+                centered(f, crate::tr!("Choose your power"), 16.0, Color::srgb(0.85, 0.78, 0.6)),
             ));
             root.spawn((
                 OfferRow,
@@ -708,7 +708,7 @@ pub(super) fn setup_hud(
                     ..default()
                 },
             ));
-            root.spawn(centered(f, "Click a card, or press 1, 2 or 3", 14.0, DIM));
+            root.spawn(centered(f, crate::tr!("Click a card, or press 1, 2 or 3"), 14.0, DIM));
         });
 
     // --- Pause. ---
@@ -731,11 +731,11 @@ pub(super) fn setup_hud(
             bevy::ui::FocusPolicy::Pass,
         ))
         .with_children(|root| {
-            root.spawn(centered(f, "Paused", 46.0, GOLD));
+            root.spawn(centered(f, crate::tr!("Paused"), 46.0, GOLD));
             for (label, action) in [
-                ("Resume", UiAction::Resume),
-                ("Abandon run", UiAction::MainMenu),
-                ("Quit game", UiAction::Quit),
+                (crate::tr!("Resume"), UiAction::Resume),
+                (crate::tr!("Abandon run"), UiAction::MainMenu),
+                (crate::tr!("Quit game"), UiAction::Quit),
             ] {
                 root.spawn((
                     button(action, BUTTON),
@@ -788,9 +788,15 @@ pub(super) fn setup_hud(
                 ..default()
             })
             .with_children(|row| {
-                for (i, label) in ["Survived", "Level", "Kills", "Damage", "Bosses"]
-                    .into_iter()
-                    .enumerate()
+                for (i, label) in [
+                    crate::tr!("Survived"),
+                    crate::tr!("Level"),
+                    crate::tr!("Kills"),
+                    crate::tr!("Damage"),
+                    crate::tr!("Bosses"),
+                ]
+                .into_iter()
+                .enumerate()
                 {
                     row.spawn((
                         Node {
@@ -836,7 +842,7 @@ pub(super) fn setup_hud(
                 ),
             ))
             .with_children(|b| {
-                b.spawn(text(f, "Play again", 22.0, GOLD));
+                b.spawn(text(f, crate::tr!("Play again"), 22.0, GOLD));
             });
             root.spawn((
                 button(UiAction::Quit, Color::NONE),
@@ -847,7 +853,7 @@ pub(super) fn setup_hud(
                 },
             ))
             .with_children(|b| {
-                b.spawn(text(f, "Quit game", 15.0, DIM));
+                b.spawn(text(f, crate::tr!("Quit game"), 15.0, DIM));
             });
         });
 }
@@ -1121,7 +1127,7 @@ pub(super) fn describe_card(
             CardText {
                 spell: def.spell,
                 name: spell_name(spells, def.spell, def.key),
-                tag: "New spell".into(),
+                tag: crate::tr!("New spell").into(),
                 tag_color: new,
                 desc: format!("{}.", ability_body(def, &c)),
                 ranks: Some((0, data::MAX_ABILITY_LEVEL)),
@@ -1143,28 +1149,32 @@ pub(super) fn describe_card(
                 (a.dot, b.dot)
             };
             if db > da {
-                lines.push(format!("Damage {} » {}", num(da), num(db)));
+                lines.push(crate::tr!("Damage {} » {}", num(da), num(db)));
             }
             if b.cooldown < a.cooldown - 0.01 {
-                lines.push(format!(
+                lines.push(crate::tr!(
                     "Cooldown {}s » {}s",
                     num(a.cooldown),
                     num(b.cooldown)
                 ));
             }
             if b.count > a.count {
-                lines.push(format!("Targets {} » {}", a.count, b.count));
+                lines.push(crate::tr!("Targets {} » {}", a.count, b.count));
             }
             if b.radius > a.radius + 0.05 {
-                lines.push(format!("Area {} » {} yd", num(a.radius), num(b.radius)));
+                lines.push(crate::tr!("Area {} » {} yd", num(a.radius), num(b.radius)));
             }
             if b.duration > a.duration + 0.05 {
-                lines.push(format!("Lasts {}s » {}s", num(a.duration), num(b.duration)));
+                lines.push(crate::tr!(
+                    "Lasts {}s » {}s",
+                    num(a.duration),
+                    num(b.duration)
+                ));
             }
             CardText {
                 spell: o.def.spell,
                 name: spell_name(spells, o.def.spell, o.def.key),
-                tag: format!("Rank {} » {next}", o.level),
+                tag: crate::tr!("Rank {} » {next}", o.level),
                 tag_color: Color::WHITE,
                 desc: lines.join("\n"),
                 ranks: Some((o.level, data::MAX_ABILITY_LEVEL)),
@@ -1173,7 +1183,7 @@ pub(super) fn describe_card(
         Choice::NewPassive(p) => CardText {
             spell: p.spell,
             name: p.name.into(),
-            tag: "New talent".into(),
+            tag: crate::tr!("New talent").into(),
             tag_color: new,
             desc: passive_text(p.stat, p.per_level),
             ranks: Some((0, data::MAX_PASSIVE_LEVEL)),
@@ -1187,7 +1197,7 @@ pub(super) fn describe_card(
             CardText {
                 spell: p.spell,
                 name: p.name.into(),
-                tag: format!("Rank {level} » {}", level + 1),
+                tag: crate::tr!("Rank {level} » {}", level, level + 1),
                 tag_color: Color::WHITE,
                 desc: format!(
                     "{}\n{} » {}",
@@ -1200,10 +1210,10 @@ pub(super) fn describe_card(
         }
         Choice::Heal => CardText {
             spell: 5720,
-            name: "Healthstone".into(),
-            tag: "Restore".into(),
+            name: crate::tr!("Healthstone").into(),
+            tag: crate::tr!("Restore").into(),
             tag_color: Color::WHITE,
-            desc: "Everything is mastered. Restores all health.".into(),
+            desc: crate::tr!("Everything is mastered. Restores all health.").into(),
             ranks: None,
         },
     }
@@ -1236,13 +1246,13 @@ pub(super) fn refresh_hud(
         n.width = Val::Percent((run.xp / need * 100.0).clamp(0.0, 100.0));
     }
     if let Ok(mut t) = texts.p6().single_mut() {
-        let xp = format!("XP {} / {}", run.xp as u32, need as u32);
+        let xp = crate::tr!("XP {} / {}", run.xp as u32, need as u32);
         if **t != xp {
             **t = xp;
         }
     }
     if let Ok(mut t) = texts.p0().single_mut() {
-        **t = format!("Level {}", run.level);
+        **t = crate::tr!("Level {}", run.level);
     }
     let secs = run.elapsed as u32;
     if let Ok(mut t) = texts.p1().single_mut() {
@@ -1250,7 +1260,7 @@ pub(super) fn refresh_hud(
     }
     let kills = run.kills;
     if let Ok(mut t) = texts.p2().single_mut() {
-        **t = format!("Kills {kills}");
+        **t = crate::tr!("Kills {kills}", kills);
     }
     let banner = match run.banner.as_mut() {
         Some((msg, t)) => {
@@ -1278,15 +1288,15 @@ pub(super) fn refresh_hud(
         }
     }
     let title = if run.won {
-        "Victory!"
+        crate::tr!("Victory!")
     } else {
-        "You have fallen"
+        crate::tr!("You have fallen")
     }
     .to_string();
     if let Ok(mut t) = texts.p4().single_mut() {
         **t = title;
     }
-    let summary = format!(
+    let summary = crate::tr!(
         "{} {} in {}   —   press Enter to play again",
         crate::char_select::race_name(run.race),
         run.class.name,
@@ -1656,7 +1666,7 @@ pub(super) fn refresh_results(
     let stats_line = if run.won {
         selection.map_def().victory
     } else {
-        "The horde was too much this time."
+        crate::tr!("The horde was too much this time.")
     };
     let values = [
         format!("{:02}:{:02}", secs / 60, secs % 60),
@@ -1733,17 +1743,17 @@ fn cast_at(def: &'static AbilityDef, level: u8, stats: &Stats) -> Cast {
 fn effect_text(effect: Effect) -> Option<String> {
     Some(match effect {
         Effect::None => return None,
-        Effect::Slow(m, t) => format!("slowing them by {} for {} sec", pct(1.0 - m), num(t)),
-        Effect::Root(t) => format!("freezing them in place for {} sec", num(t)),
-        Effect::Stun(t) => format!("stunning them for {} sec", num(t)),
-        Effect::Fear(t) => format!("sending them fleeing for {} sec", num(t)),
-        Effect::Weaken(m, t) => format!(
+        Effect::Slow(m, t) => crate::tr!("slowing them by {} for {} sec", pct(1.0 - m), num(t)),
+        Effect::Root(t) => crate::tr!("freezing them in place for {} sec", num(t)),
+        Effect::Stun(t) => crate::tr!("stunning them for {} sec", num(t)),
+        Effect::Fear(t) => crate::tr!("sending them fleeing for {} sec", num(t)),
+        Effect::Weaken(m, t) => crate::tr!(
             "cutting their damage by {} for {} sec",
             pct(1.0 - m),
             num(t)
         ),
-        Effect::Drain(f) => format!("healing you for {} of the damage", pct(f)),
-        Effect::Execute(f) => format!("killing them outright below {} health", pct(f)),
+        Effect::Drain(f) => crate::tr!("healing you for {} of the damage", pct(f)),
+        Effect::Execute(f) => crate::tr!("killing them outright below {} health", pct(f)),
     })
 }
 

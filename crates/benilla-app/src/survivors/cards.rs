@@ -46,11 +46,11 @@ impl Rarity {
 
     fn label(self) -> &'static str {
         match self {
-            Self::Common => "Common",
-            Self::Uncommon => "Uncommon",
-            Self::Rare => "Rare",
-            Self::Epic => "Epic",
-            Self::Legendary => "Legendary",
+            Self::Common => crate::tr!("Common"),
+            Self::Uncommon => crate::tr!("Uncommon"),
+            Self::Rare => crate::tr!("Rare"),
+            Self::Epic => crate::tr!("Epic"),
+            Self::Legendary => crate::tr!("Legendary"),
         }
     }
 }

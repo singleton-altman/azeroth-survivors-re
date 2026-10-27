@@ -13,6 +13,7 @@ mod fill;
 mod grade;
 mod hero;
 mod hud;
+pub(crate) mod i18n;
 mod menu;
 mod minimap;
 mod mobility;

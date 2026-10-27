@@ -197,7 +197,7 @@ pub(super) fn build_menu(
                 &art,
                 f,
                 MenuAction::Enter,
-                "Enter World",
+                crate::tr!("Enter World"),
                 200.0,
                 60.0,
                 GlueBtnKind::Normal,
@@ -257,7 +257,7 @@ fn tower(ui: &mut ChildSpawnerCommands, art: &GlueArt, f: &Handle<Font>) {
                 abs(1.0, -27.0, 60.0, 256.0, 259.0),
             ));
         }
-        for (label, center) in [("Alliance", 51.0), ("Horde", 151.0)] {
+        for (label, center) in [(crate::tr!("Alliance"), 51.0), (crate::tr!("Horde"), 151.0)] {
             outlined_text(
                 tower,
                 Node {
@@ -317,7 +317,7 @@ fn tower(ui: &mut ChildSpawnerCommands, art: &GlueArt, f: &Handle<Font>) {
                 ..default()
             })
             .with_children(|g| {
-                for (sex, label) in [(0u8, "Male"), (1u8, "Female")] {
+                for (sex, label) in [(0u8, crate::tr!("Male")), (1u8, crate::tr!("Female"))] {
                     let face = art.gender.as_ref().map(|(sheet, size)| {
                         let half = if sex == 0 {
                             [0.0, 0.5, 0.0, 1.0]
@@ -386,7 +386,7 @@ fn tower(ui: &mut ChildSpawnerCommands, art: &GlueArt, f: &Handle<Font>) {
                     art,
                     f,
                     MenuAction::Randomize,
-                    "Randomize",
+                    crate::tr!("Randomize"),
                     146.0,
                     30.0,
                     GlueBtnKind::Small,
@@ -447,7 +447,7 @@ fn zone_frame(ui: &mut ChildSpawnerCommands, art: &GlueArt, f: &Handle<Font>) {
             (),
             (),
             GlueText {
-                text: "Choose a Zone",
+                text: crate::tr!("Choose a Zone"),
                 size: 18.0,
                 color: DIM,
                 wrap: false,
@@ -495,9 +495,9 @@ fn zone_frame(ui: &mut ChildSpawnerCommands, art: &GlueArt, f: &Handle<Font>) {
                         1.0,
                     );
                     let levels = if lo == hi {
-                        format!("Level {lo}")
+                        crate::tr!("Level {lo}", lo)
                     } else {
-                        format!("Level {lo}-{hi}")
+                        crate::tr!("Level {lo}-{hi}", lo, hi)
                     };
                     outlined_text(
                         b,

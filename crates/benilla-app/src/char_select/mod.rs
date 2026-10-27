@@ -850,37 +850,42 @@ fn debug_select_shot(
 }
 
 /// The WoW UI font, straight off the patch chain (Bevy's TTF loader over the `mpq://` source).
+/// zhCN 数据的 FRIZQT__ 没有汉字字形,中文界面换方正兰亭黑(该字体同样覆盖 ASCII)。
 pub(crate) fn wow_font(assets: &AssetServer) -> Handle<Font> {
-    assets.load("mpq://Fonts/FRIZQT__.ttf")
+    let path = match crate::survivors::i18n::lang() {
+        crate::survivors::i18n::Lang::ZhCn => "mpq://Fonts/FZLBJW.TTF",
+        crate::survivors::i18n::Lang::En => "mpq://Fonts/FRIZQT__.ttf",
+    };
+    assets.load(path)
 }
 
 // ── 1.12 display names ──────────────────────────────────────────────────────────────────────────
 
 pub(crate) fn race_name(race: u8) -> &'static str {
     match race {
-        1 => "Human",
-        2 => "Orc",
-        3 => "Dwarf",
-        4 => "Night Elf",
-        5 => "Undead",
-        6 => "Tauren",
-        7 => "Gnome",
-        8 => "Troll",
+        1 => crate::tr!("Human"),
+        2 => crate::tr!("Orc"),
+        3 => crate::tr!("Dwarf"),
+        4 => crate::tr!("Night Elf"),
+        5 => crate::tr!("Undead"),
+        6 => crate::tr!("Tauren"),
+        7 => crate::tr!("Gnome"),
+        8 => crate::tr!("Troll"),
         _ => "?",
     }
 }
 
 pub(crate) fn class_name(class: u8) -> &'static str {
     match class {
-        1 => "Warrior",
-        2 => "Paladin",
-        3 => "Hunter",
-        4 => "Rogue",
-        5 => "Priest",
-        7 => "Shaman",
-        8 => "Mage",
-        9 => "Warlock",
-        11 => "Druid",
+        1 => crate::tr!("Warrior"),
+        2 => crate::tr!("Paladin"),
+        3 => crate::tr!("Hunter"),
+        4 => crate::tr!("Rogue"),
+        5 => crate::tr!("Priest"),
+        7 => crate::tr!("Shaman"),
+        8 => crate::tr!("Mage"),
+        9 => crate::tr!("Warlock"),
+        11 => crate::tr!("Druid"),
         _ => "?",
     }
 }
